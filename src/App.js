@@ -1,19 +1,27 @@
 import { useEffect, useContext, useState } from "react";
 import { SocketContext } from "./socket";
 import styled from "styled-components";
-import { Table } from "antd";
+import { Table, Drawer, Tabs } from "antd";
 import moment from "moment";
+import { EyeOutlined } from "@ant-design/icons";
+import JSONPretty from "react-json-pretty";
 
 function App() {
   const { socket } = useContext(SocketContext);
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [drawerStatus, setDrawerStatus] = useState(false);
+  const [singleLogData, setSingleLogData] = useState(null);
   const positiveStatus = [201, 200, 304];
+
+  const { TabPane } = Tabs;
 
   useEffect(() => {
     setIsLoading(true);
-    socket.on("new_request", ({ request, response }) => {
+    socket.on("new_request", (data) => {
+      const { request, response } = data;
       const modifiedPayload = {
+        logId: data._id,
         method: request.method,
         path: request.path,
         status: response.status,
@@ -25,9 +33,7 @@ function App() {
     });
 
     async function fetchData() {
-      const { data } = await (
-        await fetch("http://localhost:7000/horus/api/logs")
-      ).json();
+      const { data } = await (await fetch("/argus/api/logs")).json();
 
       setLogs([...data]);
       setIsLoading(false);
@@ -38,6 +44,21 @@ function App() {
       socket.off("new_request");
     };
   }, []);
+
+  async function viewLogInfo(logId) {
+    console.log(logId);
+    setIsLoading(true);
+
+    const { data } = await (await fetch(`/argus/api/logs/${logId}`)).json();
+
+    setSingleLogData(data);
+    setIsLoading(false);
+    handleDrawerStatus();
+  }
+
+  function handleDrawerStatus() {
+    setDrawerStatus(!drawerStatus);
+  }
 
   const tableColumns = [
     {
@@ -77,6 +98,16 @@ function App() {
         return <span className="date">{moment(timestamp).fromNow()}</span>;
       },
     },
+    {
+      title: "VIEW LOG",
+      dataIndex: "logId",
+      key: "logId",
+      render(logId) {
+        return (
+          <EyeOutlined className="viewLog" onClick={() => viewLogInfo(logId)} />
+        );
+      },
+    },
   ];
 
   return (
@@ -95,20 +126,89 @@ function App() {
       </div>
 
       <Footer>
-        Horus.js{" "}
+        Argus Logger{" "}
         <a
-          href="https://github.com/iamnasirudeen/horus"
+          href="https://github.com/iamnasirudeen/argus"
           target="_blank"
           rel="noreferrer"
         >
           Repository
         </a>
       </Footer>
+
+      <CustomDrawer
+        width={450}
+        title="Request & Response Details"
+        placement={"left"}
+        onClose={handleDrawerStatus}
+        visible={drawerStatus}
+      >
+        <p>Hostname: {singleLogData?.request?.hostname}</p>
+        <p>Client IP: {singleLogData?.request?.ipAddress}</p>
+        <p>Method: {singleLogData?.request?.method}</p>
+        <p>Status: {singleLogData?.response?.status}</p>
+        <p>Path: {singleLogData?.request?.path}</p>
+        <p>URL: {singleLogData?.request?.url}</p>
+        <p>Time Spent: {singleLogData?.request?.duration}</p>
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="Payload" key="1">
+            <JSONPretty
+              themeClassName="theme"
+              data={singleLogData?.request?.body?.[0] || {}}
+            ></JSONPretty>
+          </TabPane>
+          <TabPane tab="Headers" key="2">
+            <JSONPretty
+              themeClassName="theme"
+              data={singleLogData?.request?.headers?.[0] || {}}
+            ></JSONPretty>
+          </TabPane>
+          <TabPane tab="Responses" key="3">
+            <JSONPretty
+              themeClassName="theme"
+              data={singleLogData?.response?.body?.[0] || {}}
+            ></JSONPretty>
+          </TabPane>
+        </Tabs>
+      </CustomDrawer>
     </Layout>
   );
 }
 
 export default App;
+
+const CustomDrawer = styled(Drawer)`
+  font-family: DM Sans;
+  font-weight: bold;
+
+  .theme {
+    padding: 1rem;
+    background: #252526;
+    font-family: Consolas, "Courier New", monospace;
+    font-weight: normal;
+    font-size: 13px;
+    font-feature-settings: "liga", "calt";
+    line-height: 18px;
+    letter-spacing: 0px;
+    color: #d4d4d4;
+    border-radius: 10px;
+
+    .__json-key__ {
+      color: #9cdcfe;
+    }
+
+    .__json-value__ {
+      color: #9cdcfe !important;
+    }
+
+    .__json-string__ {
+      color: #b5cea8;
+    }
+    .__json-boolean__ {
+      color: #569cd6;
+    }
+  }
+`;
 
 const Footer = styled.div`
   padding: 1rem;
@@ -125,6 +225,12 @@ const Footer = styled.div`
 
 const Layout = styled.div`
   background-color: #edf2f7 !important;
+
+  .viewLog {
+    font-size: 20px;
+    color: green;
+    opacity: 0.8;
+  }
 
   .innerWrapper {
     padding: 3rem;
