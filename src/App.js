@@ -14,6 +14,11 @@ function App() {
   const [singleLogData, setSingleLogData] = useState(null);
   const positiveStatus = [201, 200, 304];
 
+  const baseURL =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:5000/logs/"
+      : window.location.pathname;
+
   const { TabPane } = Tabs;
 
   useEffect(() => {
@@ -33,7 +38,7 @@ function App() {
     });
 
     async function fetchData() {
-      const { data } = await (await fetch("/argus/api/logs")).json();
+      const { data } = await (await fetch(`${baseURL}api/logs`)).json();
 
       setLogs([...data]);
       setIsLoading(false);
@@ -43,13 +48,12 @@ function App() {
     return function () {
       socket.off("new_request");
     };
-  }, []);
+  }, [baseURL, socket]);
 
   async function viewLogInfo(logId) {
-    console.log(logId);
     setIsLoading(true);
 
-    const { data } = await (await fetch(`/argus/api/logs/${logId}`)).json();
+    const { data } = await (await fetch(`${baseURL}api/logs/${logId}`)).json();
 
     setSingleLogData(data);
     setIsLoading(false);
@@ -146,7 +150,18 @@ function App() {
         <p>Hostname: {singleLogData?.request?.hostname}</p>
         <p>Client IP: {singleLogData?.request?.ipAddress}</p>
         <p>Method: {singleLogData?.request?.method}</p>
-        <p>Status: {singleLogData?.response?.status}</p>
+        <p>
+          Status:{" "}
+          <span
+            className={`badge ${
+              !positiveStatus.includes(singleLogData?.response?.status)
+                ? "red"
+                : ""
+            }`}
+          >
+            {singleLogData?.response?.status}
+          </span>
+        </p>
         <p>Path: {singleLogData?.request?.path}</p>
         <p>URL: {singleLogData?.request?.url}</p>
         <p>Time Spent: {singleLogData?.request?.duration}</p>
@@ -225,6 +240,22 @@ const Footer = styled.div`
 
 const Layout = styled.div`
   background-color: #edf2f7 !important;
+
+  span.badge {
+    padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+    background: #c6f6d5;
+    opacity: 0.5;
+    border-radius: 9999px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    &.red {
+      color: red !important;
+      background: #fcdbdd !important;
+    }
+  }
 
   .viewLog {
     font-size: 20px;
@@ -321,22 +352,6 @@ const Layout = styled.div`
             letter-spacing: 1px;
             text-transform: uppercase;
             color: #8f92a1;
-          }
-
-          span.badge {
-            padding: 0.2rem 0.5rem 0.2rem 0.5rem;
-            background: #c6f6d5;
-            opacity: 0.5;
-            border-radius: 9999px;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-
-            &.red {
-              color: red !important;
-              background: #fcdbdd !important;
-            }
           }
         }
       }
