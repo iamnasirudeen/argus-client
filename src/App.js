@@ -29,7 +29,7 @@ function App() {
   useEffect(() => {
     setIsLoading(true);
     socket.on("new_request", (data) => {
-      const { request, response } = data;
+      const { request, response, total } = data;
       const modifiedPayload = {
         logId: data._id,
         method: request.method,
@@ -43,7 +43,7 @@ function App() {
       setPagination((paginationData) => {
         return {
           ...paginationData,
-          total: paginationData?.total + 1,
+          total,
         };
       });
     });
@@ -82,12 +82,14 @@ function App() {
     setDrawerStatus(!drawerStatus);
   }
 
-  async function handleTabChange(pagination) {
+  async function handleTabChange(pagination, filters, sorter) {
+    console.log(pagination, filters, sorter);
+
     setIsLoading(true);
-    const { current } = pagination;
+    const { current, pageSize } = pagination;
 
     const { data, record } = await (
-      await fetch(`${baseURL}api/logs?page=${current}`)
+      await fetch(`${baseURL}api/logs?page=${current}&perPage=${pageSize}`)
     ).json();
 
     setLogs([...data]);
@@ -95,6 +97,7 @@ function App() {
       ...pagination,
       total: record?.total,
       current: record?.curent,
+      pageSize: data?.length,
     });
     setIsLoading(false);
   }
