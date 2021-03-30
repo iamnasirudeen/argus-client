@@ -13,6 +13,11 @@ function App() {
   const [drawerStatus, setDrawerStatus] = useState(false);
   const [singleLogData, setSingleLogData] = useState(null);
   const positiveStatus = [201, 200, 304];
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
 
   const baseURL =
     process.env.NODE_ENV === "development"
@@ -35,12 +40,25 @@ function App() {
       };
 
       setLogs((logs) => [modifiedPayload, ...logs]);
+      setPagination((paginationData) => {
+        return {
+          ...paginationData,
+          total: paginationData?.total + 1,
+        };
+      });
     });
 
     async function fetchData() {
-      const { data } = await (await fetch(`${baseURL}api/logs`)).json();
+      const { data, record } = await (await fetch(`${baseURL}api/logs`)).json();
 
       setLogs([...data]);
+      setPagination((paginationData) => {
+        return {
+          ...paginationData,
+          total: record?.total,
+          current: record?.curent,
+        };
+      });
       setIsLoading(false);
     }
 
@@ -62,6 +80,23 @@ function App() {
 
   function handleDrawerStatus() {
     setDrawerStatus(!drawerStatus);
+  }
+
+  async function handleTabChange(pagination) {
+    setIsLoading(true);
+    const { current } = pagination;
+
+    const { data, record } = await (
+      await fetch(`${baseURL}api/logs?page=${current}`)
+    ).json();
+
+    setLogs([...data]);
+    setPagination({
+      ...pagination,
+      total: record?.total,
+      current: record?.curent,
+    });
+    setIsLoading(false);
   }
 
   const tableColumns = [
@@ -123,9 +158,11 @@ function App() {
 
         <TableWrapper
           loading={isLoading}
-          pagination={{ position: ["bottomCenter"] }}
+          pagination={{ position: ["bottomCenter"], ...pagination }}
           dataSource={logs}
           columns={tableColumns}
+          rowKey={(log) => log.logId}
+          onChange={handleTabChange}
         />
       </div>
 
