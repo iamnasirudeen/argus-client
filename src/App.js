@@ -12,6 +12,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [drawerStatus, setDrawerStatus] = useState(false);
   const [singleLogData, setSingleLogData] = useState(null);
+
   const positiveStatus = [201, 200, 304];
   const [pagination, setPagination] = useState({
     current: 1,
@@ -104,7 +105,7 @@ function App() {
 
   const tableColumns = [
     {
-      title: "VERB",
+      title: "METHOD",
       dataIndex: "method",
       key: "method",
     },
@@ -133,11 +134,11 @@ function App() {
       key: "duration",
     },
     {
-      title: "HAPPENED",
+      title: "TIMESTAMP",
       dataIndex: "timestamp",
       key: "timestamp",
       render(timestamp) {
-        return <span className="date">{moment(timestamp).fromNow()}</span>;
+        return <span className="date">{moment(timestamp).format()}</span>;
       },
     },
     {
@@ -153,6 +154,7 @@ function App() {
   ];
 
   return (
+    <>
     <Layout>
       <div className="innerWrapper">
         <div className="liveSection">
@@ -169,16 +171,16 @@ function App() {
         />
       </div>
 
-      <Footer>
-        Argus Logger{" "}
-        <a
-          href="https://github.com/iamnasirudeen/argus"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Repository
-        </a>
-      </Footer>
+      <Footer  className='footer-fixed'>
+     Argus Logger
+     <a
+       href="https://github.com/iamnasirudeen/argus"
+       target="_blank"
+       rel="noreferrer"
+     >
+       Repository
+     </a>
+   </Footer>
 
       <CustomDrawer
         width={450}
@@ -227,6 +229,8 @@ function App() {
         </Tabs>
       </CustomDrawer>
     </Layout>
+ 
+   </>
   );
 }
 
@@ -280,7 +284,15 @@ const Footer = styled.div`
 
 const Layout = styled.div`
   background-color: #edf2f7 !important;
-
+  min-height: 100vh !important;
+  .footer-fixed {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  color: white;
+  text-align: center;
+}
   span.badge {
     padding: 0.2rem 0.5rem 0.2rem 0.5rem;
     background: #c6f6d5;

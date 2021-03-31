@@ -1,6 +1,4 @@
 import { createContext, useState, useEffect } from "react";
-import { Redirect } from "react-router";
-import App from "./App";
 
 const AuthContext = createContext();
 
