@@ -12,10 +12,20 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [drawerStatus, setDrawerStatus] = useState(false);
   const [singleLogData, setSingleLogData] = useState(null);
+  const [totalResults, setTotalResults] = useState(1);
+  // const [pageLimit, setPageLimit] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1)
+
   const positiveStatus = [201, 200, 304];
 
   const { TabPane } = Tabs;
-
+  async function fetchData(page = 1 ) {
+    const { data, record } = await (await fetch(`http://localhost:5000/logs/api/logs?page=${page}`)).json();
+    setTotalResults(record.total)
+    setCurrentPage(record.current)
+    setLogs([...data]);
+    setIsLoading(false);
+  }
   useEffect(() => {
     setIsLoading(true);
     socket.on("new_request", (data) => {
@@ -32,12 +42,7 @@ function App() {
       setLogs((logs) => [modifiedPayload, ...logs]);
     });
 
-    async function fetchData() {
-      const { data } = await (await fetch("/argus/api/logs")).json();
-
-      setLogs([...data]);
-      setIsLoading(false);
-    }
+  
 
     (async () => await fetchData())();
     return function () {
@@ -50,7 +55,6 @@ function App() {
     setIsLoading(true);
 
     const { data } = await (await fetch(`/argus/api/logs/${logId}`)).json();
-
     setSingleLogData(data);
     setIsLoading(false);
     handleDrawerStatus();
@@ -62,7 +66,7 @@ function App() {
 
   const tableColumns = [
     {
-      title: "VERB",
+      title: "METHOD",
       dataIndex: "method",
       key: "method",
     },
@@ -91,11 +95,11 @@ function App() {
       key: "duration",
     },
     {
-      title: "HAPPENED",
+      title: "TIMESTAMP",
       dataIndex: "timestamp",
       key: "timestamp",
       render(timestamp) {
-        return <span className="date">{moment(timestamp).fromNow()}</span>;
+        return <span className="date">{moment(timestamp).format()}</span>;
       },
     },
     {
@@ -109,7 +113,10 @@ function App() {
       },
     },
   ];
-
+  const onChange = (page)=> {
+    setCurrentPage(page)
+    fetchData(page)
+  };
   return (
     <Layout>
       <div className="innerWrapper">
@@ -119,7 +126,11 @@ function App() {
 
         <TableWrapper
           loading={isLoading}
-          pagination={{ position: ["bottomCenter"] }}
+          pagination={{ 
+            position: ["bottomCenter"], pageSize: 10, total: totalResults, 
+            showQuickJumper: true, showSizeChanger: false, current: currentPage,
+            onChange: onChange,
+        }}
           dataSource={logs}
           columns={tableColumns}
         />
