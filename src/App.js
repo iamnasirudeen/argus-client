@@ -12,24 +12,25 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [drawerStatus, setDrawerStatus] = useState(false);
   const [singleLogData, setSingleLogData] = useState(null);
-  const [totalResults, setTotalResults] = useState(1);
-  // const [pageLimit, setPageLimit] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1)
 
   const positiveStatus = [201, 200, 304];
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+
+  const baseURL =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:5000/logs/"
+      : window.location.pathname;
 
   const { TabPane } = Tabs;
-  async function fetchData(page = 1 ) {
-    const { data, record } = await (await fetch(`http://localhost:5000/logs/api/logs?page=${page}`)).json();
-    setTotalResults(record.total)
-    setCurrentPage(record.current)
-    setLogs([...data]);
-    setIsLoading(false);
-  }
+
   useEffect(() => {
     setIsLoading(true);
     socket.on("new_request", (data) => {
-      const { request, response } = data;
+      const { request, response, total } = data;
       const modifiedPayload = {
         logId: data._id,
         method: request.method,
@@ -40,21 +41,39 @@ function App() {
       };
 
       setLogs((logs) => [modifiedPayload, ...logs]);
+      setPagination((paginationData) => {
+        return {
+          ...paginationData,
+          total,
+        };
+      });
     });
 
-  
+    async function fetchData() {
+      const { data, record } = await (await fetch(`${baseURL}api/logs`)).json();
+
+      setLogs([...data]);
+      setPagination((paginationData) => {
+        return {
+          ...paginationData,
+          total: record?.total,
+          current: record?.curent,
+        };
+      });
+      setIsLoading(false);
+    }
 
     (async () => await fetchData())();
     return function () {
       socket.off("new_request");
     };
-  }, []);
+  }, [baseURL, socket]);
 
   async function viewLogInfo(logId) {
-    console.log(logId);
     setIsLoading(true);
 
-    const { data } = await (await fetch(`/argus/api/logs/${logId}`)).json();
+    const { data } = await (await fetch(`${baseURL}api/logs/${logId}`)).json();
+
     setSingleLogData(data);
     setIsLoading(false);
     handleDrawerStatus();
@@ -62,6 +81,26 @@ function App() {
 
   function handleDrawerStatus() {
     setDrawerStatus(!drawerStatus);
+  }
+
+  async function handleTabChange(pagination, filters, sorter) {
+    console.log(pagination, filters, sorter);
+
+    setIsLoading(true);
+    const { current, pageSize } = pagination;
+
+    const { data, record } = await (
+      await fetch(`${baseURL}api/logs?page=${current}&perPage=${pageSize}`)
+    ).json();
+
+    setLogs([...data]);
+    setPagination({
+      ...pagination,
+      total: record?.total,
+      current: record?.curent,
+      pageSize: data?.length,
+    });
+    setIsLoading(false);
   }
 
   const tableColumns = [
@@ -113,11 +152,9 @@ function App() {
       },
     },
   ];
-  const onChange = (page)=> {
-    setCurrentPage(page)
-    fetchData(page)
-  };
+
   return (
+    <>
     <Layout>
       <div className="innerWrapper">
         <div className="liveSection">
@@ -126,26 +163,24 @@ function App() {
 
         <TableWrapper
           loading={isLoading}
-          pagination={{ 
-            position: ["bottomCenter"], pageSize: 10, total: totalResults, 
-            showQuickJumper: true, showSizeChanger: false, current: currentPage,
-            onChange: onChange,
-        }}
+          pagination={{ position: ["bottomCenter"], ...pagination }}
           dataSource={logs}
           columns={tableColumns}
+          rowKey={(log) => log.logId}
+          onChange={handleTabChange}
         />
       </div>
 
-      <Footer>
-        Argus Logger{" "}
-        <a
-          href="https://github.com/iamnasirudeen/argus"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Repository
-        </a>
-      </Footer>
+      <Footer  className='footer-fixed'>
+     Argus Logger
+     <a
+       href="https://github.com/iamnasirudeen/argus"
+       target="_blank"
+       rel="noreferrer"
+     >
+       Repository
+     </a>
+   </Footer>
 
       <CustomDrawer
         width={450}
@@ -157,7 +192,18 @@ function App() {
         <p>Hostname: {singleLogData?.request?.hostname}</p>
         <p>Client IP: {singleLogData?.request?.ipAddress}</p>
         <p>Method: {singleLogData?.request?.method}</p>
-        <p>Status: {singleLogData?.response?.status}</p>
+        <p>
+          Status:{" "}
+          <span
+            className={`badge ${
+              !positiveStatus.includes(singleLogData?.response?.status)
+                ? "red"
+                : ""
+            }`}
+          >
+            {singleLogData?.response?.status}
+          </span>
+        </p>
         <p>Path: {singleLogData?.request?.path}</p>
         <p>URL: {singleLogData?.request?.url}</p>
         <p>Time Spent: {singleLogData?.request?.duration}</p>
@@ -183,6 +229,8 @@ function App() {
         </Tabs>
       </CustomDrawer>
     </Layout>
+ 
+   </>
   );
 }
 
@@ -236,6 +284,30 @@ const Footer = styled.div`
 
 const Layout = styled.div`
   background-color: #edf2f7 !important;
+  min-height: 100vh !important;
+  .footer-fixed {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  color: white;
+  text-align: center;
+}
+  span.badge {
+    padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+    background: #c6f6d5;
+    opacity: 0.5;
+    border-radius: 9999px;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    &.red {
+      color: red !important;
+      background: #fcdbdd !important;
+    }
+  }
 
   .viewLog {
     font-size: 20px;
@@ -332,22 +404,6 @@ const Layout = styled.div`
             letter-spacing: 1px;
             text-transform: uppercase;
             color: #8f92a1;
-          }
-
-          span.badge {
-            padding: 0.2rem 0.5rem 0.2rem 0.5rem;
-            background: #c6f6d5;
-            opacity: 0.5;
-            border-radius: 9999px;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-
-            &.red {
-              color: red !important;
-              background: #fcdbdd !important;
-            }
           }
         }
       }
